@@ -1,0 +1,36 @@
+# 依赖
+node_modules/
+.npm-cache/
+.puppeteer-cache/
+
+# 录制输出（用户自行管理）
+api-records/
+output/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 环境变量
+.env
+.env.local
+
+# 临时文件
+*.tmp
+*.bak
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 浏览器用户数据（保存登录态的目录）
+chrome-profile/

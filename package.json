@@ -1,0 +1,32 @@
+{
+  "name": "api-recorder",
+  "version": "1.0.0",
+  "description": "抓取网页接口的录制工具 - 通过 Chrome DevTools Protocol 录制网络请求并导出 JSON 接口文件",
+  "main": "bin/record.js",
+  "bin": {
+    "record": "./bin/record.js"
+  },
+  "scripts": {
+    "start": "node bin/record.js",
+    "postinstall": "echo \"✅ api-recorder 安装完成。如果使用 puppeteer-core，请确保本机已安装 Google Chrome。\""
+  },
+  "keywords": [
+    "api",
+    "recorder",
+    "puppeteer",
+    "chrome",
+    "capture",
+    "network",
+    "cdp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer-core": "^22.0.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
