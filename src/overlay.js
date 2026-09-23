@@ -303,7 +303,13 @@
     if (!state.recording) window.__apiRecorder.start();
   });
   btnPause.addEventListener('click', () => {
-    if (state.recording) window.__apiRecorder.pause();
+    if (state.recording) {
+      if (typeof window.__arOnPause === 'function') {
+        window.__arOnPause();
+      } else {
+        window.__apiRecorder.pause();
+      }
+    }
   });
   btnList.addEventListener('click', () => window.__apiRecorder.showList());
   root.querySelector('[data-action="close-list"]').addEventListener('click', () => {

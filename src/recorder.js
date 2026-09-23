@@ -264,14 +264,6 @@ class Recorder {
       await this.page.evaluate(() => {
         if (!window.__arBridged) {
           window.__arBridged = true;
-          // 拦截浏览器内暂停按钮
-          const observer = new MutationObserver(() => {});
-          document.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action="pause"]');
-            if (btn && window.__apiRecorder?.isRecording()) {
-              window.__arOnPause();
-            }
-          }, true);
         }
       });
     } catch (e) {
@@ -301,56 +293,92 @@ class Recorder {
     await new Promise((r) => setTimeout(r, 500));
 
     const filePath = await this._exportToFile();
+    const apiCount = this.records.filter(
+      (r) => ['XHR', 'Fetch'].includes(r.resourceType)
+    ).length;
 
-    console.log(chalk.green.bold(`\n✔ 已导出 ${this.records.length} 条接口到：`));
+    console.log(chalk.green.bold(`\n✔ 已导出 ${apiCount} 条 API 接口到 (Postman Collection v2.1)：`));
     console.log(chalk.white(`  ${filePath}\n`));
 
-    // 通知浏览器：导出完成
     try {
       await this.page.evaluate((info) => {
         if (window.__apiRecorder) {
           window.__apiRecorder.pause();
           const status = document.querySelector('#__api_recorder_panel__ .ar-status');
           if (status) {
-            status.innerHTML = `✅ 已导出 <b style="color:#34d399">${info.count}</b> 条接口到 <code style="color:#60a5fa">${info.path}</code>`;
+            status.innerHTML = `✅ 已导出 <b style="color:#34d399">${info.count}</b> 条 API 接口 (Postman格式) 到 <code style="color:#60a5fa">${info.path}</code>`;
           }
         }
-      }, { count: this.records.length, path: filePath });
+      }, { count: apiCount, path: filePath });
     } catch (e) {}
   }
 
   async _exportToFile() {
-    // 清理内部字段，生成对外输出
-    const output = {
-      meta: {
-        targetUrl: this.url,
-        recordedAt: new Date().toISOString(),
-        total: this.records.length,
-        successCount: this.records.filter((r) => r.status && r.status < 400).length,
-        failedCount: this.records.filter((r) => !r.status || r.status >= 400).length,
-      },
-      apis: this.records.map((r) => ({
-        method: r.method,
-        url: r.url,
-        status: r.status,
-        resourceType: r.resourceType,
+    const apiRecords = this.records.filter(
+      (r) => ['XHR', 'Fetch'].includes(r.resourceType)
+    );
+
+    const items = apiRecords.map((r) => {
+      const urlObj = new URL(r.url);
+      const item = {
+        name: `${r.method} ${urlObj.pathname}`,
         request: {
-          headers: r.requestHeaders,
-          body: r.requestBody,
+          method: r.method,
+          header: Object.entries(r.requestHeaders || {}).map(([key, value]) => ({
+            key,
+            value,
+          })),
+          url: {
+            raw: r.url,
+            protocol: urlObj.protocol.replace(':', ''),
+            host: urlObj.hostname.split('.'),
+            port: urlObj.port || '',
+            path: urlObj.pathname.split('/').filter(Boolean),
+            query: Array.from(urlObj.searchParams.entries()).map(([key, value]) => ({
+              key,
+              value,
+            })),
+          },
         },
-        response: {
-          headers: r.responseHeaders,
-          body: r.responseBody,
-          bodyBase64: r.responseBodyBase64,
-          size: r.encodedDataLength,
-        },
-        fromCache: r.fromCache || false,
-        error: r.error || null,
-        startAt: r.startAt,
-      })),
+        response: [],
+      };
+
+      if (r.requestBody) {
+        item.request.body = { mode: 'raw', raw: r.requestBody };
+        const ct = (r.requestHeaders || {})['Content-Type'] || (r.requestHeaders || {})['content-type'] || '';
+        if (ct.includes('application/json')) {
+          item.request.body.options = { raw: { language: 'json' } };
+        }
+      }
+
+      if (r.status != null) {
+        const resp = {
+          name: `${r.status} Response`,
+          originalRequest: item.request,
+          status: r.status < 400 ? 'OK' : 'Error',
+          code: r.status,
+          header: Object.entries(r.responseHeaders || {}).map(([key, value]) => ({
+            key,
+            value,
+          })),
+          body: r.responseBody || '',
+        };
+        item.response.push(resp);
+      }
+
+      return item;
+    });
+
+    const collection = {
+      info: {
+        name: `API Record - ${new URL(this.url).hostname}`,
+        description: `Recorded from ${this.url} at ${new Date().toISOString()}`,
+        schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      item: items,
     };
 
-    fs.writeFileSync(this.outputPath, JSON.stringify(output, null, 2), 'utf8');
+    fs.writeFileSync(this.outputPath, JSON.stringify(collection, null, 2), 'utf8');
     return this.outputPath;
   }
 
